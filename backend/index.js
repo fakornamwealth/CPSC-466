@@ -1,8 +1,8 @@
-import { WebSocketServer } from 'ws';
-import bcrypt from 'bcrypt';
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import User from './model/User.js';
+import { WebSocketServer } from "ws";
+import bcrypt from "bcrypt";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import User from "./model/User.js";
 
 dotenv.config();
 
@@ -23,10 +23,10 @@ const userMessageCounts = new Map();
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 
 // Connect to MongoDB
-mongoose
-  .connect(process.env.dbURI)
-  .then(() => console.log('DB Connected! and server running'))
-  .catch((e) => console.log(e));
+// mongoose
+//   .connect(process.env.dbURI)
+//   .then(() => console.log('DB Connected! and server running'))
+//   .catch((e) => console.log(e));
 
 // Authenticate/Login user
 async function authenticate(username, password) {
@@ -39,10 +39,9 @@ async function authenticate(username, password) {
 
 // Register user
 async function registerUser(username, password) {
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = new User({ username, password: hashedPassword });
+  const newUser = new User({ username, password });
   await newUser.save();
-  console.log('New user:', newUser);
+  console.log("New user:", newUser);
 }
 
 // Create/Join chatroom
@@ -51,9 +50,9 @@ function handleChatroom(ws, chatroomName, username) {
     chatrooms.set(chatroomName, new Set());
   }
   chatrooms.get(chatroomName).add(username);
-  ws.send(JSON.stringify({ type: 'chatroom_joined', chatroomName }));
+  ws.send(JSON.stringify({ type: "chatroom_joined", chatroomName }));
   broadcastMessage(chatroomName, {
-    type: 'system_message',
+    type: "system_message",
     message: `${username} joined the chatroom.`,
   });
   console.log(`${username} joined chatroom: ${chatroomName}`);
@@ -73,15 +72,15 @@ function broadcastMessage(chatroomName, message) {
 }
 
 // Handle WebSocket connections
-wss.on('connection', (ws) => {
-  console.log('New client connected');
+wss.on("connection", (ws) => {
+  console.log("New client connected");
 
   // Set up heartbeat
   let heartbeatInterval;
   const setupHeartbeat = () => {
     heartbeatInterval = setInterval(() => {
       if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({ type: 'heartbeat' }));
+        ws.send(JSON.stringify({ type: "heartbeat" }));
       }
     }, HEARTBEAT_INTERVAL);
   };
@@ -89,54 +88,54 @@ wss.on('connection', (ws) => {
   // Start heartbeat
   setupHeartbeat();
 
-  ws.on('message', async (message) => {
+  ws.on("message", async (message) => {
     let data;
     // Convert Buffer to string if necessary
     if (message instanceof Buffer) {
-      data = JSON.parse(message.toString('utf8'));
+      data = JSON.parse(message.toString("utf8"));
     } else {
       data = JSON.parse(message);
     }
-    console.log('Received data:', data);
+    console.log("Received data:", data);
 
-    if (data.type === 'login') {
+    if (data.type === "login") {
       if (await authenticate(data.username, data.password)) {
         connectedClients.set(data.username, ws);
         ws.send(
-          JSON.stringify({ type: 'login_successfull', username: data.username })
+          JSON.stringify({ type: "login_successfull", username: data.username })
         );
       } else {
         ws.send(
           JSON.stringify({
-            type: 'login_failed',
-            message: 'Incorrect password/user does not exist',
+            type: "login_failed",
+            message: "Incorrect password/user does not exist",
           })
         );
       }
-    } else if (data.type === 'register') {
+    } else if (data.type === "register") {
       try {
         await registerUser(data.username, data.password);
-        ws.send(JSON.stringify({ type: 'registration_successfull' }));
+        ws.send(JSON.stringify({ type: "registration_successfull" }));
       } catch (error) {
         ws.send(
           JSON.stringify({
-            type: 'registration_failed',
-            error: 'Username already exists',
+            type: "registration_failed",
+            error: "Username already exists",
           })
         );
       }
-    } else if (data.type === 'join_chatroom') {
+    } else if (data.type === "join_chatroom") {
       if (!connectedClients.has(data.username)) {
         ws.send(
-          JSON.stringify({ type: 'error', message: 'User not logged in' })
+          JSON.stringify({ type: "error", message: "User not logged in" })
         );
         return;
       }
       handleChatroom(ws, data.chatroomName, data.username);
-    } else if (data.type === 'message') {
+    } else if (data.type === "message") {
       if (!connectedClients.has(data.username)) {
         ws.send(
-          JSON.stringify({ type: 'error', message: 'User not logged in' })
+          JSON.stringify({ type: "error", message: "User not logged in" })
         );
         return;
       }
@@ -146,14 +145,14 @@ wss.on('connection', (ws) => {
       if (count >= RATE_LIMIT) {
         ws.send(
           JSON.stringify({
-            type: 'rate_limit_exceeded',
-            message: 'Wait for 1 min',
+            type: "rate_limit_exceeded",
+            message: "Wait for 1 min",
           })
         );
       } else {
         userMessageCounts.set(data.username, count + 1);
         broadcastMessage(data.chatroomName, {
-          type: 'message',
+          type: "message",
           from: data.username,
           chatroomName: data.chatroomName,
           message: data.message,
@@ -162,7 +161,7 @@ wss.on('connection', (ws) => {
     }
   });
 
-  ws.on('close', () => {
+  ws.on("close", () => {
     // Handle disconnection
     connectedClients.forEach((value, key) => {
       if (value === ws) {
@@ -174,7 +173,7 @@ wss.on('connection', (ws) => {
           if (users.has(key)) {
             users.delete(key);
             broadcastMessage(chatroomName, {
-              type: 'system_message',
+              type: "system_message",
               message: `${key} left the chatroom.`,
             });
           }
